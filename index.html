@@ -4,6 +4,14 @@
     <title>Modern MOEX Returns Heatmap</title>
     <script src="https://d3js.org/d3.v7.min.js"></script>
     <style>
+      /* #tooltip {
+        transition: opacity 0.2s ease;
+        opacity: 0;
+      }
+
+      .heatmap-cell {
+          transition: stroke-width 0.2s ease, filter 0.2s ease, transform 0.2s ease;
+        } */
         body {
             font-family: 'Segoe UI', sans-serif;
             background: #f8f9fa;
@@ -402,7 +410,34 @@ function updateHeatmap() {
                 .attr("height", cellSize - 2)
                 .attr("rx", 4) // Rounded corners
                 .attr("fill", colorScale(returnVal))
-                .on("mouseover", (e) => {
+                .on("mouseover", function(e) {
+                  // Показ тултипа
+                  d3.select("#tooltip")
+                      .style("left", e.pageX + 15 + "px")
+                      .style("top", e.pageY + 15 + "px")
+                      .html(`
+                          <strong>${startPeriod.key} → ${endPeriod.key}</strong><br>
+                          Return: <span style="color:${returnVal >= 0 ? '#2a9d8f' : '#e76f51'}">${(returnVal*100).toFixed(1)}%</span>
+                      `);
+
+                      const currentStartIndex = i;
+                    const relevantPeriods = filteredPeriods.slice(currentStartIndex);
+
+                    // Обновить шкалу Y
+                    const yAxisScale = d3.scaleBand()
+                        .domain(relevantPeriods.map(p => p.key))
+                        .range([margin.top, margin.top + relevantPeriods.length * cellSize]);
+
+                    // Перерисовать ось Y
+                    svg.select(".y-axis")
+                        .transition()
+                        .duration(300)
+                        .call(d3.axisLeft(yAxisScale))
+                        .selectAll("text")
+                            .style("text-anchor", "end")
+                            .attr("dx", "-1em");
+
+                    // Показать тултип
                     d3.select("#tooltip")
                         .style("left", e.pageX + 15 + "px")
                         .style("top", e.pageY + 15 + "px")
@@ -410,7 +445,37 @@ function updateHeatmap() {
                             <strong>${startPeriod.key} → ${endPeriod.key}</strong><br>
                             Return: <span style="color:${returnVal >= 0 ? '#2a9d8f' : '#e76f51'}">${(returnVal*100).toFixed(1)}%</span>
                         `);
-                });
+              })
+              .on("mousemove", function(e) {
+                  // Обновление позиции тултипа при движении курсора
+                  d3.select("#tooltip")
+                      .style("left", e.pageX + 15 + "px")
+                      .style("top", e.pageY + 15 + "px");
+              })
+              .on("mouseleave", function() {
+                  // Возврат к исходному состоянию
+                  d3.select(this)
+                      .transition()
+                      .duration(100)
+                      .attr("stroke-width", 0);
+
+                  // Скрытие тултипа
+                  d3.select("#tooltip").style("opacity", 0);
+
+                  // Восстановить исходную ось Y
+                  const yAxisScale = d3.scaleBand()
+                        .domain(filteredPeriods.map(p => p.key))
+                        .range([margin.top, margin.top + filteredPeriods.length * cellSize]);
+
+                    svg.select(".y-axis")
+                        .transition()
+                        .duration(300)
+                        .call(d3.axisLeft(yAxisScale));
+              })
+              .on("mouseenter", function() {
+                  // Плавное появление тултипа
+                  d3.select("#tooltip").style("opacity", 1);
+              });
         });
     });
 
@@ -430,11 +495,14 @@ function updateHeatmap() {
             .attr("dy", "1.3em")
             .attr("transform", "rotate(90)");
 
+    const yAxisScale = d3.scaleBand()
+        .domain(filteredPeriods.map(p => p.key))
+        .range([margin.top, margin.top + filteredPeriods.length * cellSize]);
     // Y-axis
     svg.append("g")
         .attr("class", "y-axis")
         .attr("transform", `translate(${margin.left},0)`)
-        .call(d3.axisLeft(axisScale))
+        .call(d3.axisLeft(yAxisScale))
         .selectAll("text")
             .style("text-anchor", "end")
             .attr("dx", "-1em")
